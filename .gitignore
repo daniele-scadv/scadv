@@ -1,5 +1,7 @@
 backend/.env
 backend/juridico.db
+.env
+juridico.db
 backend/__pycache__/
 backend/*.pyc
 backend/venv/
