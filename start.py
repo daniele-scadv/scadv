@@ -1,16 +1,22 @@
 import os
 import sys
+import subprocess
 
-# Garante que o diretório atual está no path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-port = int(os.environ.get("PORT", 8000))
-host = "0.0.0.0"
+# Lê a porta — tenta variáveis conhecidas do Railway
+port = None
+for var in ["PORT", "RAILWAY_PORT", "HTTP_PORT"]:
+    val = os.environ.get(var, "")
+    if val.isdigit():
+        port = int(val)
+        break
 
-print(f"[START] Iniciando servidor em {host}:{port}", flush=True)
-print(f"[START] Python: {sys.version}", flush=True)
-print(f"[START] Diretório: {os.getcwd()}", flush=True)
-print(f"[START] Arquivos: {os.listdir('.')}", flush=True)
+if port is None:
+    port = 8000
+
+print(f"[START] PORT={port}", flush=True)
+print(f"[START] ENV vars: { {k:v for k,v in os.environ.items() if 'PORT' in k} }", flush=True)
 
 import uvicorn
-uvicorn.run("main:app", host=host, port=port, log_level="info")
+uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info")
