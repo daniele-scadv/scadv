@@ -1,0 +1,33 @@
+services:
+  # Backend FastAPI
+  - type: web
+    name: juridico-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATAJUD_API_KEY
+        sync: false  # Você vai preencher no painel do Render
+      - key: ADVOGADA_NOME
+        value: "Daniele de Assis Santiago Cabral"
+      - key: OAB_RR
+        value: "617"
+      - key: OAB_AM
+        value: "1404A"
+      - key: DATABASE_URL
+        value: "sqlite:///./juridico.db"
+
+  # Frontend React (static site)
+  - type: web
+    name: juridico-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: juridico-backend
+          type: web
+          property: host
