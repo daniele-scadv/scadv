@@ -3,7 +3,7 @@ backend/juridico.db
 backend/__pycache__/
 backend/*.pyc
 backend/venv/
-backend/static/
+# backend/static/ — incluído no git (frontend pré-compilado)
 frontend/node_modules/
 frontend/dist/
 .DS_Store
