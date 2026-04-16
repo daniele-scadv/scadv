@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 import json
 import io
@@ -139,7 +139,7 @@ async def sincronizar(background_tasks: BackgroundTasks, db: Session = Depends(g
     return {"mensagem": "Sincronização iniciada em segundo plano."}
 
 
-@app.get("/api/processos", response_model=list[RespostaProcesso])
+@app.get("/api/processos", response_model=List[RespostaProcesso])
 def listar_processos(
     busca: Optional[str] = Query(None),
     tribunal: Optional[str] = Query(None),

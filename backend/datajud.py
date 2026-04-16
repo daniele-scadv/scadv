@@ -2,6 +2,7 @@ import httpx
 import os
 import json
 import asyncio
+from typing import List, Tuple
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -158,7 +159,7 @@ async def buscar_processos_tribunal(
     tribunal: str,
     numero_oab: str,
     sigla_estado: str,
-) -> list[dict]:
+) -> List[dict]:
     url = f"{BASE_URL}/api_publica-{tribunal}/_search"
     headers = {
         "Authorization": f"ApiKey {API_KEY}",
@@ -192,7 +193,7 @@ async def buscar_processos_tribunal(
     return processos
 
 
-async def buscar_todos_processos() -> tuple[list[dict], list[str]]:
+async def buscar_todos_processos() -> Tuple[List[dict], List[str]]:
     """Busca processos em todos os tribunais para OAB/RR 617 e OAB/AM 1404A."""
     oab_rr = os.getenv("OAB_RR", "617")
     oab_am = os.getenv("OAB_AM", "1404A")
