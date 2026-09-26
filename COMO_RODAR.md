@@ -8,7 +8,7 @@ cd backend
 python -m venv venv
 source venv/bin/activate        # Mac/Linux
 pip install -r requirements.txt
-uvicorn main:app --reload
+AUTH_DESABILITADA=1 uvicorn main:app --reload
 ```
 O backend estará em http://localhost:8000
 
@@ -22,6 +22,24 @@ O dashboard estará em http://localhost:5173
 
 ### 3. Primeira sincronização
 Abra o dashboard e clique em **"Sincronizar"**. O sistema vai buscar seus processos em todos os tribunais (pode levar alguns minutos na primeira vez).
+
+---
+
+## Railway — configuração obrigatória
+
+### 1. Banco de dados permanente (sem isso, anotações somem a cada deploy)
+1. No projeto do Railway: **New** → **Database** → **Add PostgreSQL**
+2. No serviço do sistema → **Variables** → **Add Reference** → escolha `DATABASE_URL` do Postgres
+3. O sistema cria as tabelas sozinho no primeiro start. Clique em **Sincronizar** para trazer os processos.
+
+### 2. Senha de acesso (sem isso o sistema fica bloqueado)
+No serviço do sistema → **Variables**:
+- `APP_USUARIO` = usuário de login (ex.: `santiagocabral`)
+- `APP_SENHA` = senha forte (mínimo 16 caracteres, gerada em gerenciador de senhas)
+- `DATAJUD_API_KEY` = chave da API DataJud
+
+O navegador pedirá usuário e senha ao abrir o sistema. Após 10 tentativas erradas, o IP fica bloqueado por 15 minutos.
+Para testes locais sem senha: `AUTH_DESABILITADA=1` no `.env` (nunca use no Railway).
 
 ---
 

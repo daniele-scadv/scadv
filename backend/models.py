@@ -6,9 +6,22 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./juridico.db")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+def _normalizar_url(url: str) -> str:
+    # Railway/Heroku entregam "postgres://" ou "postgresql://"; o SQLAlchemy precisa do driver explícito
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url[len("postgresql://"):]
+    return url
+
+
+DATABASE_URL = _normalizar_url(os.getenv("DATABASE_URL", "sqlite:///./juridico.db"))
+
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
