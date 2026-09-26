@@ -43,31 +43,10 @@ Para testes locais sem senha: `AUTH_DESABILITADA=1` no `.env` (nunca use no Rail
 
 ---
 
-## Deploy na web — Render.com (GRATUITO)
+## Estrutura do projeto
 
-### Passo 1 — Subir para o GitHub
-```bash
-cd juridico-dashboard
-git init
-git add .
-git commit -m "Sistema de gestão processual"
-# Crie um repositório no github.com (pode ser privado) e siga as instruções
-git remote add origin https://github.com/SEU_USUARIO/juridico-dashboard.git
-git push -u origin main
-```
-
-### Passo 2 — Criar conta no Render
-1. Acesse https://render.com e crie uma conta gratuita
-2. Clique em **"New +"** → **"Blueprint"**
-3. Conecte seu repositório GitHub
-4. O Render vai ler o arquivo `render.yaml` e configurar tudo automaticamente
-
-### Passo 3 — Configurar variáveis de ambiente
-No painel do Render, no serviço **juridico-backend**, vá em **Environment** e adicione:
-- `DATAJUD_API_KEY` = sua chave da API DataJud
-
-### Passo 4 — Acesso
-Após o deploy (~3 min), o Render fornecerá uma URL pública para o seu dashboard.
+- `backend/` — **é o que o Railway publica** (Root Directory = `backend`). Contém a API, o login e o painel já compilado em `backend/static/`.
+- `frontend/` — código-fonte do painel. Depois de alterar alguma tela, rode `npm run build` dentro de `frontend/`: o resultado vai direto para `backend/static/`. Faça commit dessa pasta junto.
 
 ---
 
@@ -87,4 +66,4 @@ Após o deploy (~3 min), o Render fornecerá uma URL pública para o seu dashboa
 ## Renovar API Key do DataJud
 Se a API Key parar de funcionar, gere uma nova em:
 https://datajud-wiki.cnj.jus.br/
-Atualize no arquivo `backend/.env` (local) ou nas variáveis do Render (web).
+Atualize no arquivo `backend/.env` (local) ou nas variáveis do Railway (web).
