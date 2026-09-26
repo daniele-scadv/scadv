@@ -8,7 +8,7 @@ cd backend
 python -m venv venv
 source venv/bin/activate        # Mac/Linux
 pip install -r requirements.txt
-uvicorn main:app --reload
+AUTH_DESABILITADA=1 uvicorn main:app --reload
 ```
 O backend estará em http://localhost:8000
 
@@ -25,31 +25,28 @@ Abra o dashboard e clique em **"Sincronizar"**. O sistema vai buscar seus proces
 
 ---
 
-## Deploy na web — Render.com (GRATUITO)
+## Railway — configuração obrigatória
 
-### Passo 1 — Subir para o GitHub
-```bash
-cd juridico-dashboard
-git init
-git add .
-git commit -m "Sistema de gestão processual"
-# Crie um repositório no github.com (pode ser privado) e siga as instruções
-git remote add origin https://github.com/SEU_USUARIO/juridico-dashboard.git
-git push -u origin main
-```
+### 1. Banco de dados permanente (sem isso, anotações somem a cada deploy)
+1. No projeto do Railway: **New** → **Database** → **Add PostgreSQL**
+2. No serviço do sistema → **Variables** → **Add Reference** → escolha `DATABASE_URL` do Postgres
+3. O sistema cria as tabelas sozinho no primeiro start. Clique em **Sincronizar** para trazer os processos.
 
-### Passo 2 — Criar conta no Render
-1. Acesse https://render.com e crie uma conta gratuita
-2. Clique em **"New +"** → **"Blueprint"**
-3. Conecte seu repositório GitHub
-4. O Render vai ler o arquivo `render.yaml` e configurar tudo automaticamente
+### 2. Senha de acesso (sem isso o sistema fica bloqueado)
+No serviço do sistema → **Variables**:
+- `APP_USUARIO` = usuário de login (ex.: `santiagocabral`)
+- `APP_SENHA` = senha forte (mínimo 16 caracteres, gerada em gerenciador de senhas)
+- `DATAJUD_API_KEY` = chave da API DataJud
 
-### Passo 3 — Configurar variáveis de ambiente
-No painel do Render, no serviço **juridico-backend**, vá em **Environment** e adicione:
-- `DATAJUD_API_KEY` = sua chave da API DataJud
+O navegador pedirá usuário e senha ao abrir o sistema. Após 10 tentativas erradas, o IP fica bloqueado por 15 minutos.
+Para testes locais sem senha: `AUTH_DESABILITADA=1` no `.env` (nunca use no Railway).
 
-### Passo 4 — Acesso
-Após o deploy (~3 min), o Render fornecerá uma URL pública para o seu dashboard.
+---
+
+## Estrutura do projeto
+
+- `backend/` — **é o que o Railway publica** (Root Directory = `backend`). Contém a API, o login e o painel já compilado em `backend/static/`.
+- `frontend/` — código-fonte do painel. Depois de alterar alguma tela, rode `npm run build` dentro de `frontend/`: o resultado vai direto para `backend/static/`. Faça commit dessa pasta junto.
 
 ---
 
@@ -69,4 +66,4 @@ Após o deploy (~3 min), o Render fornecerá uma URL pública para o seu dashboa
 ## Renovar API Key do DataJud
 Se a API Key parar de funcionar, gere uma nova em:
 https://datajud-wiki.cnj.jus.br/
-Atualize no arquivo `backend/.env` (local) ou nas variáveis do Render (web).
+Atualize no arquivo `backend/.env` (local) ou nas variáveis do Railway (web).

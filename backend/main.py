@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Query
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -14,18 +13,14 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-from models import Processo, get_db, create_tables
+from models import Processo, SessionLocal, get_db, create_tables
+from auth import middleware_autenticacao
 from datajud import buscar_todos_processos
 
 app = FastAPI(title="Sistema Jurídico - Daniele Cabral", version="1.0.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Frontend e API são servidos pela mesma origem; nenhum CORS é necessário.
+app.middleware("http")(middleware_autenticacao)
 
 sincronizacao_status = {"em_andamento": False, "ultima_vez": None, "total": 0, "erros": []}
 
@@ -78,7 +73,8 @@ class RespostaProcesso(BaseModel):
 
 # ─── Sincronização ──────────────────────────────────────────────────────────
 
-async def _executar_sincronizacao(db: Session):
+async def _executar_sincronizacao():
+    db = SessionLocal()
     sincronizacao_status["em_andamento"] = True
     sincronizacao_status["erros"] = []
     try:
@@ -105,8 +101,10 @@ async def _executar_sincronizacao(db: Session):
         sincronizacao_status["total"] = db.query(Processo).count()
         sincronizacao_status["ultima_vez"] = datetime.now().isoformat()
     except Exception as e:
+        db.rollback()
         sincronizacao_status["erros"].append(str(e))
     finally:
+        db.close()
         sincronizacao_status["em_andamento"] = False
 
 
@@ -132,10 +130,10 @@ def status_sistema(db: Session = Depends(get_db)):
 
 
 @app.post("/api/sincronizar")
-async def sincronizar(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def sincronizar(background_tasks: BackgroundTasks):
     if sincronizacao_status["em_andamento"]:
         raise HTTPException(status_code=409, detail="Sincronização já em andamento.")
-    background_tasks.add_task(_executar_sincronizacao, db)
+    background_tasks.add_task(_executar_sincronizacao)
     return {"mensagem": "Sincronização iniciada em segundo plano."}
 
 
@@ -176,7 +174,8 @@ def listar_processos(
     if situacao:
         q = q.filter(Processo.situacao.ilike(f"%{situacao}%"))
 
-    campo_ordem = getattr(Processo, ordenar_por, Processo.atualizado_em)
+    campos_ordenaveis = {c.name for c in Processo.__table__.columns}
+    campo_ordem = getattr(Processo, ordenar_por) if ordenar_por in campos_ordenaveis else Processo.atualizado_em
     if ordem == "desc":
         q = q.order_by(campo_ordem.desc())
     else:
