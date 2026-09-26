@@ -113,11 +113,12 @@ def _parse_processo(hit: dict, tribunal_sigla: str) -> dict:
         elif polo in ("passivo", "requerido", "reu", "réu", "reclamado", "impetrado", "executado"):
             partes_passivo.append(nome)
 
-    movimentos = src.get("movimentos", [])
+    # A ordem da lista de movimentos no DataJud não é garantida: pega a mais recente pela data
+    movimentos = [m for m in src.get("movimentos", []) if isinstance(m, dict)]
     ultimo_mov = ""
     data_ultimo_mov = ""
     if movimentos:
-        mov = movimentos[0]
+        mov = max(movimentos, key=lambda m: m.get("dataHora") or "")
         ultimo_mov = mov.get("nome", "")
         data_ultimo_mov = mov.get("dataHora", "")
 

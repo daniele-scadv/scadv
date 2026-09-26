@@ -43,6 +43,41 @@ Para testes locais sem senha: `AUTH_DESABILITADA=1` no `.env` (nunca use no Rail
 
 ---
 
+## Alerta de movimentações por e-mail
+
+O sistema sincroniza sozinho às **07:00 e 13:00** (horário de Roraima) e envia **um e-mail-resumo** com:
+- processos que tiveram movimentação nova (ordenados por prioridade — urgentes no topo, com o "O que fazer" de cada um);
+- processos novos em que a OAB passou a constar.
+
+Processos marcados como ocultos não geram alerta. A primeira sincronização (banco vazio) não dispara e-mail.
+
+### Variáveis no Railway
+
+| Variável | Exemplo | Obrigatória |
+|---|---|---|
+| `ALERTA_EMAILS` | `daniele@santiagocabraladv.com, equipe@santiagocabraladv.com` | sim |
+| `APP_URL` | link do sistema no Railway (vai no e-mail) | recomendado |
+| `SINCRONIZAR_HORARIOS` | `07:00,13:00` (vazio desliga) | não |
+| `FUSO_HORARIO` | `America/Boa_Vista` | não |
+
+**Forma de envio — escolha uma:**
+
+**A) Resend (recomendado)** — envio por API; funciona em qualquer plano do Railway.
+1. Crie conta em https://resend.com, adicione o domínio `santiagocabraladv.com` e cadastre os registros DNS que ele mostrar.
+2. Gere uma API Key.
+3. No Railway: `RESEND_API_KEY` = a chave; `ALERTA_REMETENTE` = `Processos <alertas@santiagocabraladv.com>`.
+
+**B) SMTP (Google Workspace)** — pode ser bloqueado pelo Railway dependendo do plano.
+1. Na conta Google do remetente, ative a verificação em duas etapas e gere uma **senha de app**.
+2. No Railway: `SMTP_HOST` = `smtp.gmail.com`, `SMTP_PORT` = `587`, `SMTP_USUARIO` = e-mail remetente, `SMTP_SENHA` = senha de app.
+
+### Testar
+Com o sistema logado, abra o console do navegador (F12) e rode:
+`fetch('/api/alertas/teste', {method: 'POST'}).then(r => r.json()).then(console.log)`
+Deve chegar um e-mail de teste. O resultado de cada sincronização aparece em `/api/status` (campo `alerta`).
+
+---
+
 ## Estrutura do projeto
 
 - `backend/` — **é o que o Railway publica** (Root Directory = `backend`). Contém a API, o login e o painel já compilado em `backend/static/`.

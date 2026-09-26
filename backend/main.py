@@ -16,18 +16,51 @@ from openpyxl.utils import get_column_letter
 from models import Processo, SessionLocal, get_db, create_tables
 from auth import middleware_autenticacao
 from datajud import buscar_todos_processos
+from alertas import houve_movimentacao, enviar_alerta, alerta_configurado
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 app = FastAPI(title="Sistema Jurídico - Daniele Cabral", version="1.0.0")
 
 # Frontend e API são servidos pela mesma origem; nenhum CORS é necessário.
 app.middleware("http")(middleware_autenticacao)
 
-sincronizacao_status = {"em_andamento": False, "ultima_vez": None, "total": 0, "erros": []}
+sincronizacao_status = {"em_andamento": False, "ultima_vez": None, "total": 0, "erros": [],
+                        "movimentacoes_novas": 0, "alerta": None}
+
+FUSO = os.getenv("FUSO_HORARIO", "America/Boa_Vista")
+scheduler = AsyncIOScheduler(timezone=FUSO)
+
+
+def _horarios_sincronizacao():
+    """SINCRONIZAR_HORARIOS="07:00,13:00" → [(7, 0), (13, 0)]. Vazio desliga a sincronização automática."""
+    horarios = []
+    for item in os.getenv("SINCRONIZAR_HORARIOS", "07:00,13:00").split(","):
+        item = item.strip()
+        if not item:
+            continue
+        hora, _, minuto = item.partition(":")
+        horarios.append((int(hora), int(minuto or 0)))
+    return horarios
+
+
+async def _sincronizacao_agendada():
+    if not sincronizacao_status["em_andamento"]:
+        await _executar_sincronizacao()
 
 
 @app.on_event("startup")
 async def startup():
     create_tables()
+    for hora, minuto in _horarios_sincronizacao():
+        scheduler.add_job(_sincronizacao_agendada, CronTrigger(hour=hora, minute=minuto, timezone=FUSO),
+                          max_instances=1, coalesce=True)
+    scheduler.start()
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    scheduler.shutdown(wait=False)
 
 
 # Servir frontend (após todos os endpoints /api serem registrados)
@@ -77,14 +110,25 @@ async def _executar_sincronizacao():
     db = SessionLocal()
     sincronizacao_status["em_andamento"] = True
     sincronizacao_status["erros"] = []
+    sincronizacao_status["movimentacoes_novas"] = 0
+    sincronizacao_status["alerta"] = None
     try:
         processos, erros = await buscar_todos_processos()
         sincronizacao_status["erros"] = erros
+
+        # Na primeira sincronização (banco vazio) tudo é "novo": não dispara alerta
+        primeira_carga = db.query(Processo).count() == 0
+        novidades = []
 
         total_novos = 0
         for dados in processos:
             existente = db.query(Processo).filter(Processo.numero == dados["numero"]).first()
             if existente:
+                if houve_movimentacao(existente.data_ultimo_movimento, existente.ultimo_movimento,
+                                      dados.get("data_ultimo_movimento"), dados.get("ultimo_movimento")) \
+                        and not existente.oculto:
+                    novidades.append({**dados, "prioridade": existente.prioridade,
+                                      "o_que_fazer": existente.o_que_fazer, "novo": False})
                 # Atualiza apenas campos do tribunal, preserva anotações do usuário
                 for campo in ["tribunal", "vara", "classe", "assunto", "data_distribuicao",
                               "valor_causa", "situacao", "ultimo_movimento",
@@ -96,10 +140,24 @@ async def _executar_sincronizacao():
                 novo = Processo(**dados)
                 db.add(novo)
                 total_novos += 1
+                if not primeira_carga:
+                    novidades.append({**dados, "prioridade": "normal", "o_que_fazer": None, "novo": True})
 
         db.commit()
         sincronizacao_status["total"] = db.query(Processo).count()
         sincronizacao_status["ultima_vez"] = datetime.now().isoformat()
+        sincronizacao_status["movimentacoes_novas"] = len(novidades)
+
+        # Falha no e-mail não pode desfazer a sincronização já gravada
+        try:
+            if enviar_alerta(novidades):
+                sincronizacao_status["alerta"] = f"E-mail enviado com {len(novidades)} movimentação(ões)."
+            elif novidades:
+                sincronizacao_status["alerta"] = "Alerta por e-mail não configurado."
+            else:
+                sincronizacao_status["alerta"] = "Nenhuma movimentação nova."
+        except Exception as e:
+            sincronizacao_status["alerta"] = f"Falha ao enviar e-mail: {e}"
     except Exception as e:
         db.rollback()
         sincronizacao_status["erros"].append(str(e))
@@ -135,6 +193,24 @@ async def sincronizar(background_tasks: BackgroundTasks):
         raise HTTPException(status_code=409, detail="Sincronização já em andamento.")
     background_tasks.add_task(_executar_sincronizacao)
     return {"mensagem": "Sincronização iniciada em segundo plano."}
+
+
+@app.post("/api/alertas/teste")
+def testar_alerta():
+    """Envia um e-mail de exemplo para conferir a configuração."""
+    if not alerta_configurado():
+        raise HTTPException(status_code=400, detail="Alerta por e-mail não configurado. Veja COMO_RODAR.md.")
+    exemplo = [{
+        "numero": "0000000-00.0000.0.00.0000", "tribunal": "TESTE", "polo_ativo": "Cliente Exemplo",
+        "polo_passivo": "Banco Exemplo S.A.", "ultimo_movimento": "Mensagem de teste do sistema",
+        "data_ultimo_movimento": datetime.now().isoformat(), "prioridade": "normal",
+        "o_que_fazer": None, "novo": False,
+    }]
+    try:
+        enviar_alerta(exemplo)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Falha ao enviar: {e}")
+    return {"mensagem": "E-mail de teste enviado."}
 
 
 @app.get("/api/processos", response_model=List[RespostaProcesso])
