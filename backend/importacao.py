@@ -100,6 +100,29 @@ def _parecido(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
 
+PARTICULAS = {"de", "da", "do", "das", "dos", "e"}
+
+
+def _abreviado(curto, longo):
+    """"pablo de freitas" está contido em "pablo de freitas alves" (mesmo primeiro nome, demais na ordem)."""
+    c = [t for t in curto.split() if t not in PARTICULAS]
+    l = [t for t in longo.split() if t not in PARTICULAS]
+    if len(c) < 2 or len(c) > len(l) or _parecido(c[0], l[0]) < 0.85:
+        return False
+    i = 1
+    for t in c[1:]:
+        while i < len(l) and _parecido(t, l[i]) < 0.85:
+            i += 1
+        if i == len(l):
+            return False
+        i += 1
+    return True
+
+
+def _mesma_pessoa(a, b):
+    return _parecido(a, b) >= SIMILARIDADE_MINIMA or _abreviado(a, b) or _abreviado(b, a)
+
+
 def planejar(db, conteudo, nichos_excluidos):
     excluidos = {normalizar_nome(n) for n in nichos_excluidos}
     existentes = db.query(Cliente).all()
@@ -128,10 +151,15 @@ def planejar(db, conteudo, nichos_excluidos):
             alvo = novos[nome_norm]
         if not alvo and len(nome_norm.split()) >= 2:
             candidatos = [(c.nome, c) for c in existentes] + [(p["nome"], p) for p in novos.values()]
-            melhor = max(candidatos, key=lambda c: _parecido(normalizar_nome(c[0]), nome_norm), default=None)
-            if melhor and _parecido(normalizar_nome(melhor[0]), nome_norm) >= SIMILARIDADE_MINIMA:
-                alvo = melhor[1]
-                item["avisos"].append(f"Nome parecido com \"{melhor[0]}\": tratado como o mesmo cliente")
+            if cpf:  # com CPF, só casa por nome quem ainda não tem CPF diferente
+                candidatos = [c for c in candidatos if not _cpf_de(c[1]) or _cpf_de(c[1]) == cpf]
+            iguais = [c for c in candidatos if _mesma_pessoa(normalizar_nome(c[0]), nome_norm)]
+            if len(iguais) == 1:
+                alvo = iguais[0][1]
+                item["avisos"].append(f"Nome parecido com \"{iguais[0][0]}\": tratado como o mesmo cliente")
+            elif len(iguais) > 1:
+                item["avisos"].append("Nome parecido com mais de um cliente (" + ", ".join(c[0] for c in iguais[:3])
+                                      + "): cadastrado como novo, confira se é duplicado")
 
         if len(nome_norm.split()) < 2:
             item["avisos"].append("Nome incompleto: complete o nome no cadastro")
@@ -155,6 +183,10 @@ def planejar(db, conteudo, nichos_excluidos):
             item["situacao"] = "novo"
             novos[nome_norm] = {"nome": l["nome"], "linhas": [l], "cpf": cpf}
     return itens, list(novos.values())
+
+
+def _cpf_de(alvo):
+    return alvo.cpf_cnpj if isinstance(alvo, Cliente) else alvo["cpf"]
 
 
 def _resumo(itens):
