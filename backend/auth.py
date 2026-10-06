@@ -1,7 +1,10 @@
 """Proteção de acesso por usuário e senha (HTTP Basic).
 
-Credenciais vêm das variáveis de ambiente APP_USUARIO e APP_SENHA.
-Sem APP_SENHA configurada o sistema fica bloqueado (falha fechada), exceto
+Credenciais vêm das variáveis de ambiente:
+- APP_USUARIOS: um login por pessoa da equipe, no formato
+  "daniele:senha1;ana:senha2" (o nome fica registrado em cada lançamento);
+- APP_USUARIO e APP_SENHA: login único legado, continua aceito.
+Sem nenhuma senha configurada o sistema fica bloqueado (falha fechada), exceto
 se AUTH_DESABILITADA=1 — use isso apenas para testes locais.
 """
 import base64
@@ -31,17 +34,36 @@ def _bloqueado(ip):
     return len(recentes) >= MAX_TENTATIVAS
 
 
-def _credenciais_validas(cabecalho, usuario, senha):
+def usuarios_configurados():
+    """Retorna {usuario: senha} a partir das variáveis de ambiente."""
+    usuarios = {}
+    for item in os.getenv("APP_USUARIOS", "").split(";"):
+        nome, sep, senha = item.strip().partition(":")
+        if sep and nome.strip() and senha:
+            usuarios[nome.strip()] = senha
+    senha_legada = os.getenv("APP_SENHA")
+    if senha_legada:
+        usuarios.setdefault(os.getenv("APP_USUARIO", "admin"), senha_legada)
+    return usuarios
+
+
+def _usuario_autenticado(cabecalho, usuarios):
+    """Devolve o nome do usuário se as credenciais conferem; senão None."""
     if not cabecalho or not cabecalho.lower().startswith("basic "):
-        return False
+        return None
     try:
         decodificado = base64.b64decode(cabecalho[6:]).decode("utf-8")
     except Exception:
-        return False
+        return None
     u, _, s = decodificado.partition(":")
-    usuario_ok = secrets.compare_digest(u.encode(), usuario.encode())
-    senha_ok = secrets.compare_digest(s.encode(), senha.encode())
-    return usuario_ok and senha_ok
+    encontrado = None
+    # Compara com todos para não vazar por tempo de resposta qual usuário existe
+    for nome, senha in usuarios.items():
+        usuario_ok = secrets.compare_digest(u.encode(), nome.encode())
+        senha_ok = secrets.compare_digest(s.encode(), senha.encode())
+        if usuario_ok and senha_ok:
+            encontrado = nome
+    return encontrado
 
 
 def _pedir_login():
@@ -54,13 +76,13 @@ def _pedir_login():
 
 async def middleware_autenticacao(request, call_next):
     if os.getenv("AUTH_DESABILITADA") == "1":
+        request.state.usuario = os.getenv("APP_USUARIO", "local")
         return await call_next(request)
 
-    senha = os.getenv("APP_SENHA")
-    usuario = os.getenv("APP_USUARIO", "admin")
-    if not senha:
+    usuarios = usuarios_configurados()
+    if not usuarios:
         return PlainTextResponse(
-            "Sistema bloqueado: configure a variável de ambiente APP_SENHA.",
+            "Sistema bloqueado: configure a variável de ambiente APP_USUARIOS (ou APP_SENHA).",
             status_code=503,
         )
 
@@ -72,9 +94,11 @@ async def middleware_autenticacao(request, call_next):
         )
 
     cabecalho = request.headers.get("authorization")
-    if not _credenciais_validas(cabecalho, usuario, senha):
+    usuario = _usuario_autenticado(cabecalho, usuarios)
+    if not usuario:
         if cabecalho:
             _falhas.setdefault(ip, []).append(time.time())
         return _pedir_login()
 
+    request.state.usuario = usuario
     return await call_next(request)

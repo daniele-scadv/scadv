@@ -16,6 +16,10 @@ from openpyxl.utils import get_column_letter
 from models import Processo, SessionLocal, get_db, create_tables
 from auth import middleware_autenticacao
 from datajud import buscar_todos_processos
+from negociacoes import router as router_negociacoes
+from cofre import router as router_cofre
+from importacao import router as router_importacao
+from contatos_bancos import router as router_contatos
 
 app = FastAPI(title="Sistema Jurídico - Daniele Cabral", version="1.0.0")
 
@@ -325,6 +329,11 @@ def exportar_excel(db: Session = Depends(get_db)):
         headers={"Content-Disposition": f"attachment; filename={nome_arquivo}"}
     )
 
+
+app.include_router(router_negociacoes)
+app.include_router(router_cofre)
+app.include_router(router_importacao)
+app.include_router(router_contatos)
 
 # Montar frontend estático (deve ser o último)
 montar_frontend()
