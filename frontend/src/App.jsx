@@ -141,7 +141,7 @@ export default function App() {
 
       {aba === 'clientes' && (
         <main className="flex-1 max-w-screen-2xl mx-auto w-full px-6 py-6">
-          <Clientes versao={versao} onAbrirCliente={setClienteAberto} onNovoCliente={() => setClienteAberto({})} />
+          <Clientes versao={versao} onAbrirCliente={setClienteAberto} onNovoCliente={() => setClienteAberto({})} onImportado={recarregarListas} />
         </main>
       )}
 

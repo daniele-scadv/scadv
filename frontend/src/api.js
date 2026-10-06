@@ -30,4 +30,18 @@ export const registrarTentativa = (id, dados) => api.post(`/negociacoes/${id}/te
 export const getHistoricoNegociacao = (id) => api.get(`/negociacoes/${id}/historico`)
 export const getDashboardNegociacoes = (params) => api.get('/negociacoes/dashboard', { params })
 
+export const getGov = (id) => api.get(`/clientes/${id}/gov`)
+export const revelarGov = (id) => api.post(`/clientes/${id}/gov/revelar`)
+export const salvarGov = (id, dados) => api.put(`/clientes/${id}/gov`, dados)
+export const apagarGov = (id) => api.delete(`/clientes/${id}/gov`)
+
+const formImportacao = (arquivo, nichosExcluidos) => {
+  const f = new FormData()
+  f.append('arquivo', arquivo)
+  f.append('nichos_excluidos', JSON.stringify(nichosExcluidos))
+  return f
+}
+export const previaImportacao = (arquivo, nichosExcluidos) => api.post('/importacao/previa', formImportacao(arquivo, nichosExcluidos))
+export const confirmarImportacao = (arquivo, nichosExcluidos) => api.post('/importacao/confirmar', formImportacao(arquivo, nichosExcluidos))
+
 export default api

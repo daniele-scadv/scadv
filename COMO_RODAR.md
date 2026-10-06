@@ -40,6 +40,9 @@ No serviço do sistema → **Variables**:
   Senhas fortes (mínimo 16 caracteres) e sem ponto e vírgula. Para tirar o acesso de alguém, apague o trecho da pessoa.
 - `DATAJUD_API_KEY` = chave da API DataJud
 
+- `APP_RESPONSAVEIS_ACORDOS` = quem pode ver/cadastrar o acesso gov.br dos clientes e importar planilhas, separados por ponto e vírgula: `daniele;ana`
+- `APP_CHAVE_COFRE` = chave que criptografa os acessos gov.br. Gere uma única vez e guarde no gerenciador de senhas: **se ela for perdida ou trocada, os acessos já gravados não podem mais ser lidos.**
+
 O login único antigo (`APP_USUARIO` + `APP_SENHA`) continua funcionando, mas tudo que for lançado por ele aparece com o mesmo nome. Use um login por pessoa.
 
 O navegador pedirá usuário e senha ao abrir o sistema. Após 10 tentativas erradas, o IP fica bloqueado por 15 minutos.
@@ -75,6 +78,9 @@ Para testes locais sem senha: `AUTH_DESABILITADA=1` no `.env` (nunca use no Rail
 | Registrar contato com o banco | Abra a negociação → "Registrar tentativa de acordo" (já atualiza etapa, última proposta e próxima ação) |
 | Rotina diária | Aba **Negociações** abre filtrada em "Para hoje e atrasadas" |
 | Métricas | Aba **Painel de Acordos**: calculado automaticamente pelos lançamentos |
+
+| Importar planilha | Aba **Clientes** → "Importar planilha" → prévia → confirmar (GPX fica de fora por padrão; reimportar não duplica) |
+| Acesso gov.br | Ficha do cliente → "Acesso gov.br" (só para `APP_RESPONSAVEIS_ACORDOS`; fica visível por 60 s e cada visualização vai para o histórico) |
 
 Regras do sistema: toda negociação em andamento exige próxima ação com data; acordo fechado exige valor e data; encerramento sem acordo exige motivo.
 Tentativas lançadas não são editadas nem apagadas: se houver erro, lance uma nova tentativa corrigindo.

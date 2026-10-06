@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Search, UserPlus, Copy, Check, Save, Plus } from 'lucide-react'
+import { Search, UserPlus, Copy, Check, Save, Plus, FileSpreadsheet } from 'lucide-react'
+import CofreGov from './CofreGov'
+import Importacao from './Importacao'
 import {
   getClientes, criarCliente, atualizarCliente, getHistoricoCliente, getNegociacoes,
 } from '../api'
@@ -92,7 +94,7 @@ export function ModalCliente({ cliente, onFechar, onSalvo, onAbrirNegociacao, on
   return (
     <Modal
       titulo={novo ? 'Novo cliente' : form.nome}
-      subtitulo={novo ? 'Dados de qualificação exigidos pelos bancos' : formatarDocumento(form.cpf_cnpj)}
+      subtitulo={novo ? 'Dados de qualificação exigidos pelos bancos' : cliente.cpf_cnpj ? formatarDocumento(cliente.cpf_cnpj) : 'Cadastro incompleto: sem CPF/CNPJ'}
       onFechar={onFechar}
       largura="max-w-4xl"
     >
@@ -115,8 +117,8 @@ export function ModalCliente({ cliente, onFechar, onSalvo, onAbrirNegociacao, on
             <Campo label={pj ? 'Razão social' : 'Nome completo'} obrigatorio className="md:col-span-2">
               <input value={form.nome} onChange={set('nome')} className="input-field w-full" required />
             </Campo>
-            <Campo label={pj ? 'CNPJ' : 'CPF'} obrigatorio>
-              <input value={form.cpf_cnpj} onChange={set('cpf_cnpj')} className="input-field w-full" required />
+            <Campo label={pj ? 'CNPJ' : 'CPF'}>
+              <input value={form.cpf_cnpj} onChange={set('cpf_cnpj')} placeholder="pendente" className="input-field w-full" />
             </Campo>
             {pj ? (
               <>
@@ -229,6 +231,7 @@ export function ModalCliente({ cliente, onFechar, onSalvo, onAbrirNegociacao, on
               </ul>
             )}
           </Secao>
+          <CofreGov clienteId={cliente.id} onAlterado={() => getHistoricoCliente(cliente.id).then((r) => setHistorico(r.data))} />
           <Secao titulo="Histórico de alterações">
             <ListaHistorico itens={historico} />
           </Secao>
@@ -238,12 +241,20 @@ export function ModalCliente({ cliente, onFechar, onSalvo, onAbrirNegociacao, on
   )
 }
 
+// Campos mínimos que o banco costuma exigir
+export function incompleto(c) {
+  if (c.tipo === 'PJ') return !c.cpf_cnpj || !c.logradouro || !c.cidade
+  return !c.cpf_cnpj || !c.rg || !c.data_nascimento || !c.nome_mae || !c.logradouro || !c.cidade || !c.telefone
+}
+
 function limparNulos(obj) {
   return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, v ?? '']))
 }
 
-export default function Clientes({ onAbrirCliente, onNovoCliente, versao }) {
+export default function Clientes({ onAbrirCliente, onNovoCliente, versao, onImportado }) {
   const [busca, setBusca] = useState('')
+  const [importando, setImportando] = useState(false)
+  const [soIncompletos, setSoIncompletos] = useState(false)
   const [clientes, setClientes] = useState([])
 
   const carregar = useCallback(async () => {
@@ -268,10 +279,18 @@ export default function Clientes({ onAbrirCliente, onNovoCliente, versao }) {
             className="input-field w-full pl-9"
           />
         </div>
+        <label className="flex items-center gap-2 text-sm text-navy-300">
+          <input type="checkbox" checked={soIncompletos} onChange={(e) => setSoIncompletos(e.target.checked)} />
+          Só cadastros incompletos
+        </label>
+        <button onClick={() => setImportando(true)} className="btn-secondary">
+          <FileSpreadsheet className="w-4 h-4" /> Importar planilha
+        </button>
         <button onClick={onNovoCliente} className="btn-primary">
           <UserPlus className="w-4 h-4" /> Novo cliente
         </button>
       </div>
+      {importando && <Importacao onFechar={() => { setImportando(false); carregar() }} onImportado={onImportado} />}
 
       <div className="card overflow-hidden">
         {clientes.length === 0 ? (
@@ -289,10 +308,13 @@ export default function Clientes({ onAbrirCliente, onNovoCliente, versao }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-700/50">
-                {clientes.map((c) => (
+                {clientes.filter((c) => !soIncompletos || incompleto(c)).map((c) => (
                   <tr key={c.id} onClick={() => onAbrirCliente(c)} className="hover:bg-navy-700/30 cursor-pointer">
                     <td className="px-4 py-3 text-white font-medium">{c.nome}</td>
-                    <td className="px-4 py-3 text-navy-300 font-mono text-xs">{formatarDocumento(c.cpf_cnpj)}</td>
+                    <td className="px-4 py-3 text-navy-300 font-mono text-xs">
+                      {c.cpf_cnpj ? formatarDocumento(c.cpf_cnpj) : <span className="text-amber-300 font-sans">pendente</span>}
+                      {c.cpf_cnpj && incompleto(c) && <span className="block text-amber-300 font-sans text-[11px]">cadastro incompleto</span>}
+                    </td>
                     <td className="px-4 py-3 text-navy-300">{c.telefone || '—'}</td>
                     <td className="px-4 py-3 text-navy-300">{[c.cidade, c.uf].filter(Boolean).join('/') || '—'}</td>
                     <td className="px-4 py-3 text-navy-400 text-xs">{c.criado_por} · {dataBR(c.criado_em)}</td>

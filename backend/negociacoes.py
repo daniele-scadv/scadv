@@ -1,4 +1,5 @@
 """Clientes, negociações extrajudiciais com bancos e dashboard de acordos."""
+import unicodedata
 from datetime import date, datetime
 from typing import List, Optional
 
@@ -123,29 +124,42 @@ class RespostaCliente(DadosCliente):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    origem: Optional[str] = None
     criado_por: Optional[str]
     criado_em: Optional[datetime]
     atualizado_por: Optional[str]
     atualizado_em: Optional[datetime]
 
 
+def normalizar_nome(nome):
+    sem_acento = unicodedata.normalize("NFKD", nome or "").encode("ascii", "ignore").decode()
+    return " ".join(sem_acento.lower().split())
+
+
 def _validar_cliente(db, cliente: Cliente):
     if not (cliente.nome or "").strip():
         raise HTTPException(422, "Informe o nome completo / razão social.")
-    cliente.nome = cliente.nome.strip()
+    cliente.nome = " ".join(cliente.nome.split())
     cliente.tipo = cliente.tipo if cliente.tipo in ("PF", "PJ") else "PF"
-    cliente.cpf_cnpj = _digitos(cliente.cpf_cnpj)
-    if cliente.tipo == "PF" and not _cpf_valido(cliente.cpf_cnpj):
-        raise HTTPException(422, "CPF inválido. Confira os números.")
-    if cliente.tipo == "PJ" and not _cnpj_valido(cliente.cpf_cnpj):
-        raise HTTPException(422, "CNPJ inválido. Confira os números.")
+    cliente.cpf_cnpj = _digitos(cliente.cpf_cnpj) or None
+    if cliente.cpf_cnpj:
+        if cliente.tipo == "PF" and not _cpf_valido(cliente.cpf_cnpj):
+            raise HTTPException(422, "CPF inválido. Confira os números.")
+        if cliente.tipo == "PJ" and not _cnpj_valido(cliente.cpf_cnpj):
+            raise HTTPException(422, "CNPJ inválido. Confira os números.")
+        duplicado = db.query(Cliente).filter(
+            Cliente.cpf_cnpj == cliente.cpf_cnpj, Cliente.id != cliente.id
+        ).first()
+        if duplicado:
+            raise HTTPException(409, f"Já existe cliente com este CPF/CNPJ: {duplicado.nome} (nº {duplicado.id}).")
+    else:
+        # Sem CPF não há como distinguir homônimos: bloqueia nome idêntico para não duplicar
+        nome = normalizar_nome(cliente.nome)
+        for outro in db.query(Cliente).filter(Cliente.id != cliente.id).all():
+            if normalizar_nome(outro.nome) == nome:
+                raise HTTPException(409, f"Já existe cliente com este nome: {outro.nome} (nº {outro.id}). Informe o CPF ou abra o cadastro existente.")
     if cliente.uf:
         cliente.uf = cliente.uf.strip().upper()[:2]
-    duplicado = db.query(Cliente).filter(
-        Cliente.cpf_cnpj == cliente.cpf_cnpj, Cliente.id != cliente.id
-    ).first()
-    if duplicado:
-        raise HTTPException(409, f"Já existe cliente com este CPF/CNPJ: {duplicado.nome} (nº {duplicado.id}).")
 
 
 @router.get("/clientes", response_model=List[RespostaCliente])

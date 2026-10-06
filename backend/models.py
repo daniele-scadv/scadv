@@ -57,7 +57,7 @@ class Cliente(Base):
     id = Column(Integer, primary_key=True, index=True)
     tipo = Column(String, default="PF")  # PF | PJ
     nome = Column(String, nullable=False, index=True)  # nome completo ou razão social
-    cpf_cnpj = Column(String, unique=True, index=True, nullable=False)  # só dígitos
+    cpf_cnpj = Column(String, unique=True, index=True, nullable=True)  # só dígitos; vazio = cadastro incompleto
     rg = Column(String, nullable=True)
     rg_orgao_emissor = Column(String, nullable=True)
     data_nascimento = Column(Date, nullable=True)
@@ -77,10 +77,24 @@ class Cliente(Base):
     representante_legal = Column(String, nullable=True)  # PJ
     representante_cpf = Column(String, nullable=True)  # PJ
     observacoes = Column(Text, nullable=True)
+    origem = Column(String, nullable=True)  # ex.: "Planilha contratos 2026 · jul-26"
     criado_por = Column(String, nullable=True)
     criado_em = Column(DateTime, default=datetime.utcnow)
     atualizado_por = Column(String, nullable=True)
     atualizado_em = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CredencialGov(Base):
+    """Acesso gov.br do cliente. Login, senha e observações ficam criptografados no banco."""
+    __tablename__ = "credenciais_gov"
+
+    id = Column(Integer, primary_key=True)
+    cliente_id = Column(Integer, ForeignKey("clientes.id"), unique=True, nullable=False, index=True)
+    login_cifrado = Column(Text, nullable=False)
+    senha_cifrada = Column(Text, nullable=False)
+    observacoes_cifradas = Column(Text, nullable=True)
+    atualizado_por = Column(String, nullable=False)
+    atualizado_em = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class Negociacao(Base):
