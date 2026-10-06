@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { ArrowUpDown } from 'lucide-react'
 import { getDashboardNegociacoes } from '../api'
 import { ETAPAS, moeda } from './comum'
 
@@ -18,6 +19,83 @@ function Kpi({ rotulo, valor, detalhe, tom = 'text-white', onClick }) {
       <p className={`text-2xl font-bold tabular-nums mt-1 ${tom}`}>{valor}</p>
       {detalhe && <p className="text-xs text-navy-500 mt-1">{detalhe}</p>}
     </button>
+  )
+}
+
+const COLUNAS_BANCO = [
+  { campo: 'banco', rotulo: 'Banco', alinhar: 'text-left' },
+  { campo: 'total', rotulo: 'Negociações' },
+  { campo: 'taxa_acordo', rotulo: 'Taxa de acordo', fmt: (v, l) => v == null ? '—' : `${pct(v)} (${l.acordos}/${l.acordos + l.sem_acordo})` },
+  { campo: 'desconto_primeira_proposta', rotulo: 'Desconto na 1ª proposta', fmt: (v) => pct(v) },
+  { campo: 'desconto_medio', rotulo: 'Desconto no acordo', fmt: (v, l) => v == null ? '—' : `${pct(v)} (${l.base_desconto})`, destaque: true },
+  { campo: 'dias_ate_primeira_proposta', rotulo: 'Dias até 1ª proposta', fmt: dias },
+  { campo: 'dias_medios_ate_acordo', rotulo: 'Dias até o acordo', fmt: dias },
+  { campo: 'divida_em_negociacao', rotulo: 'Dívida em negociação', fmt: (v) => moeda(v) },
+  { campo: 'economia_obtida', rotulo: 'Economia obtida', fmt: (v) => moeda(v) },
+]
+
+function dias(v) {
+  return v == null ? '—' : `${Math.round(v)} d`
+}
+
+function TabelaBancos({ linhas }) {
+  const [ordem, setOrdem] = useState({ campo: 'total', desc: true })
+  const ordenadas = [...linhas].sort((a, b) => {
+    const va = a[ordem.campo], vb = b[ordem.campo]
+    if (va == null && vb == null) return 0
+    if (va == null) return 1
+    if (vb == null) return -1
+    const r = typeof va === 'string' ? va.localeCompare(vb) : va - vb
+    return ordem.desc ? -r : r
+  })
+  return (
+    <div className="card p-5">
+      <h3 className="text-xs font-semibold text-navy-300 uppercase tracking-wider mb-1">Desempenho por banco</h3>
+      <p className="text-xs text-navy-500 mb-4">
+        Prazos contados da notificação ao banco (ou da abertura, se não houver notificação). Entre parênteses, a base de cálculo:
+        poucas negociações ainda não permitem conclusão.
+      </p>
+      {linhas.length === 0 ? (
+        <p className="text-navy-500 text-sm">Sem negociações com banco definido.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs text-navy-400 border-b border-navy-700">
+                {COLUNAS_BANCO.map((c) => (
+                  <th
+                    key={c.campo}
+                    onClick={() => setOrdem((o) => ({ campo: c.campo, desc: o.campo === c.campo ? !o.desc : true }))}
+                    className={`pb-2 px-2 cursor-pointer select-none whitespace-nowrap ${c.alinhar || 'text-right'}`}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {c.rotulo}
+                      <ArrowUpDown className={`w-3 h-3 ${ordem.campo === c.campo ? 'text-gold-400' : 'text-navy-600'}`} />
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-navy-700/50">
+              {ordenadas.map((l) => (
+                <tr key={l.banco}>
+                  {COLUNAS_BANCO.map((c) => (
+                    <td
+                      key={c.campo}
+                      className={`py-2 px-2 tabular-nums whitespace-nowrap ${c.alinhar || 'text-right'} ${
+                        c.campo === 'banco' ? 'text-white font-medium' : c.destaque ? 'text-emerald-300 font-semibold' : 'text-navy-200'
+                      }`}
+                    >
+                      {c.fmt ? c.fmt(l[c.campo], l) : l[c.campo]}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -52,6 +130,8 @@ export default function PainelAcordos({ equipe, versao, onVerNegociacoes }) {
         <Kpi rotulo="Honorários de êxito gerados" valor={moeda(d.honorarios_gerados)} tom="text-gold-400" />
         <Kpi rotulo="Honorários potenciais em negociação" valor={moeda(d.honorarios_potenciais)} tom="text-gold-400" detalhe="% de êxito sobre a última proposta (ou valor-alvo)" />
       </div>
+
+      <TabelaBancos linhas={d.por_banco || []} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <div className="card p-5">

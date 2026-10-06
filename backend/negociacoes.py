@@ -395,6 +395,83 @@ def listar_negociacoes(
     return [_resposta_negociacao(db, n) for n in negociacoes]
 
 
+# Agrupa grafias diferentes do mesmo banco ("ITAU UNIBANCO S.A.", "Banco Itaú") para as métricas
+BANCOS_CONHECIDOS = [
+    ("banco do brasil", "Banco do Brasil"), ("bb ", "Banco do Brasil"), ("itau", "Itaú"), ("bradesco", "Bradesco"),
+    ("santander", "Santander"), ("caixa", "Caixa"), ("cef", "Caixa"), ("nubank", "Nubank"), ("nu pagamentos", "Nubank"),
+    ("inter", "Inter"), ("c6", "C6 Bank"), ("sicredi", "Sicredi"), ("sicoob", "Sicoob"), ("votorantim", "BV"),
+    ("bv ", "BV"), ("pan ", "Pan"), ("daycoval", "Daycoval"), ("mercado pago", "Mercado Pago"), ("picpay", "PicPay"),
+    ("neon", "Neon"), ("original", "Original"), ("safra", "Safra"), ("btg", "BTG Pactual"), ("banrisul", "Banrisul"),
+    ("agibank", "Agibank"), ("crefisa", "Crefisa"), ("omni", "Omni"), ("will bank", "Will Bank"), ("bmg", "BMG"),
+    ("mercantil", "Mercantil"), ("basa", "Banco da Amazônia"), ("banco da amazonia", "Banco da Amazônia"),
+    ("banco do nordeste", "Banco do Nordeste"), ("bnb", "Banco do Nordeste"), ("porto", "Porto Bank"),
+]
+
+
+def banco_canonico(nome):
+    texto = f" {normalizar_nome(nome)} "
+    for chave, rotulo in BANCOS_CONHECIDOS:
+        if f" {chave.strip()} " in texto:
+            return rotulo
+    limpo = " ".join(t for t in texto.split() if t not in ("banco", "s.a.", "s/a", "sa", "s.a"))
+    return limpo.title() or (nome or "").strip()
+
+
+def _media(valores):
+    valores = [v for v in valores if v is not None]
+    return (sum(valores) / len(valores)) if valores else None
+
+
+def _inicio(n):
+    """Relógio começa na notificação ao banco; sem ela, na abertura da negociação."""
+    return n.data_notificacao or (n.criado_em.date() if n.criado_em else None)
+
+
+def _metricas_por_banco(db, negociacoes, hoje):
+    ids = [n.id for n in negociacoes]
+    primeiras = {}  # negociação → (data, valor) da 1ª proposta do banco
+    if ids:
+        for t in db.query(Tentativa).filter(
+            Tentativa.negociacao_id.in_(ids), Tentativa.proposta_valor.isnot(None)
+        ).order_by(Tentativa.data_contato.asc(), Tentativa.lancado_em.asc()).all():
+            primeiras.setdefault(t.negociacao_id, (t.data_contato, t.proposta_valor))
+
+    grupos = {}
+    for n in negociacoes:
+        if (n.banco or "").strip().lower() == "a definir":
+            continue
+        grupos.setdefault(banco_canonico(n.banco), []).append(n)
+
+    linhas = []
+    for banco, lista in grupos.items():
+        acordos = [n for n in lista if n.etapa in ETAPAS_COM_ACORDO]
+        perdidas = [n for n in lista if n.etapa in ETAPAS_SEM_ACORDO]
+        ativas = [n for n in lista if n.etapa not in ETAPAS_ENCERRADAS]
+        decididas = len(acordos) + len(perdidas)
+        com_valor = [n for n in acordos if n.valor_divida and n.valor_acordo is not None]
+        primeira = [(n, primeiras[n.id]) for n in lista if n.id in primeiras and n.valor_divida]
+        linhas.append({
+            "banco": banco,
+            "total": len(lista),
+            "ativas": len(ativas),
+            "acordos": len(acordos),
+            "sem_acordo": len(perdidas),
+            "taxa_acordo": (len(acordos) / decididas) if decididas else None,
+            "desconto_medio": _media([max(n.valor_divida - n.valor_acordo, 0) / n.valor_divida for n in com_valor]),
+            "base_desconto": len(com_valor),
+            "dias_medios_ate_acordo": _media([
+                (n.data_acordo - _inicio(n)).days for n in acordos if n.data_acordo and _inicio(n)
+            ]),
+            "desconto_primeira_proposta": _media([max(n.valor_divida - p[1], 0) / n.valor_divida for n, p in primeira]),
+            "dias_ate_primeira_proposta": _media([
+                (p[0] - _inicio(n)).days for n, p in primeira if _inicio(n) and p[0] >= _inicio(n)
+            ]),
+            "divida_em_negociacao": sum(n.valor_divida or 0 for n in ativas if n.etapa not in ETAPAS_COM_ACORDO),
+            "economia_obtida": sum(max(n.valor_divida - n.valor_acordo, 0) for n in com_valor),
+        })
+    return sorted(linhas, key=lambda l: (-l["total"], l["banco"]))
+
+
 @router.get("/negociacoes/dashboard")
 def dashboard_negociacoes(responsavel: Optional[str] = Query(None), db: Session = Depends(get_db)):
     q = db.query(Negociacao)
@@ -418,7 +495,7 @@ def dashboard_negociacoes(responsavel: Optional[str] = Query(None), db: Session 
         return economia(n, referencia) * (n.percentual_exito or 0) / 100
 
     descontos = [economia(n, n.valor_acordo) / n.valor_divida for n in acordos if n.valor_divida and n.valor_acordo]
-    dias_ate_acordo = [(n.data_acordo - n.criado_em.date()).days for n in acordos if n.data_acordo and n.criado_em]
+    dias_ate_acordo = [(n.data_acordo - _inicio(n)).days for n in acordos if n.data_acordo and _inicio(n)]
     decididas = len(acordos) + len(perdidas)
 
     por_etapa = {e: 0 for e in ETAPAS}
@@ -444,7 +521,7 @@ def dashboard_negociacoes(responsavel: Optional[str] = Query(None), db: Session 
         "taxa_acordo": (len(acordos) / decididas) if decididas else None,
         "desconto_medio": (sum(descontos) / len(descontos)) if descontos else None,
         "dias_medios_ate_acordo": (sum(dias_ate_acordo) / len(dias_ate_acordo)) if dias_ate_acordo else None,
-        "divida_em_negociacao": sum(n.valor_divida or 0 for n in ativas),
+        "divida_em_negociacao": sum(n.valor_divida or 0 for n in ativas if n.etapa not in ETAPAS_COM_ACORDO),
         "economia_obtida": sum(economia(n, n.valor_acordo) for n in acordos),
         # Potencial: % de êxito sobre a economia da última proposta do banco (ou do valor-alvo)
         "honorarios_potenciais": sum(
@@ -454,6 +531,7 @@ def dashboard_negociacoes(responsavel: Optional[str] = Query(None), db: Session 
         "honorarios_gerados": sum(honorario(n, n.valor_acordo) for n in acordos),
         "por_etapa": por_etapa,
         "por_responsavel": sorted(por_responsavel.values(), key=lambda i: -i["atrasadas"]),
+        "por_banco": _metricas_por_banco(db, todas, hoje),
     }
 
 
