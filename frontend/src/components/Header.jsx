@@ -1,10 +1,17 @@
-import { Scale, RefreshCw, Download, Clock } from 'lucide-react'
+import { Scale, RefreshCw, Download, Clock, Briefcase, Handshake, Users, BarChart3, UserCircle } from 'lucide-react'
 import { sincronizar, getExportUrl } from '../api'
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-export default function Header({ status, onSincronizou }) {
+const ABAS = [
+  { id: 'processos', label: 'Processos', icon: Briefcase },
+  { id: 'negociacoes', label: 'Negociações', icon: Handshake },
+  { id: 'clientes', label: 'Clientes', icon: Users },
+  { id: 'painel', label: 'Painel de Acordos', icon: BarChart3 },
+]
+
+export default function Header({ status, onSincronizou, aba, onAba, usuario }) {
   const [carregando, setCarregando] = useState(false)
 
   async function handleSincronizar() {
@@ -48,6 +55,13 @@ export default function Header({ status, onSincronizou }) {
 
         {/* Ações */}
         <div className="flex items-center gap-3">
+          {usuario && (
+            <div className="hidden md:flex items-center gap-1.5 text-xs text-navy-300">
+              <UserCircle className="w-4 h-4" />
+              <span>{usuario}</span>
+            </div>
+          )}
+          {aba === 'processos' && (<>
           {ultimaVez && (
             <div className="hidden md:flex items-center gap-1.5 text-xs text-navy-400 bg-navy-900 px-3 py-1.5 rounded-lg border border-navy-700">
               <Clock className="w-3.5 h-3.5" />
@@ -79,8 +93,22 @@ export default function Header({ status, onSincronizou }) {
             <RefreshCw className={`w-4 h-4 ${(carregando || emAndamento) ? 'animate-spin' : ''}`} />
             {carregando || emAndamento ? 'Sincronizando...' : 'Sincronizar'}
           </button>
+          </>)}
         </div>
       </div>
+      <nav className="max-w-screen-2xl mx-auto px-6 flex gap-1 overflow-x-auto">
+        {ABAS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => onAba(id)}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm whitespace-nowrap border-b-2 transition-colors ${
+              aba === id ? 'border-gold-400 text-white' : 'border-transparent text-navy-400 hover:text-white'
+            }`}
+          >
+            <Icon className="w-4 h-4" /> {label}
+          </button>
+        ))}
+      </nav>
     </header>
   )
 }

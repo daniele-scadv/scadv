@@ -32,11 +32,15 @@ Abra o dashboard e clique em **"Sincronizar"**. O sistema vai buscar seus proces
 2. No serviço do sistema → **Variables** → **Add Reference** → escolha `DATABASE_URL` do Postgres
 3. O sistema cria as tabelas sozinho no primeiro start. Clique em **Sincronizar** para trazer os processos.
 
-### 2. Senha de acesso (sem isso o sistema fica bloqueado)
+### 2. Logins da equipe (sem isso o sistema fica bloqueado)
 No serviço do sistema → **Variables**:
-- `APP_USUARIO` = usuário de login (ex.: `santiagocabral`)
-- `APP_SENHA` = senha forte (mínimo 16 caracteres, gerada em gerenciador de senhas)
+- `APP_USUARIOS` = um login por pessoa, separados por ponto e vírgula:
+  `daniele:SenhaForte1;ana:SenhaForte2;bruno:SenhaForte3`
+  O nome antes dos dois-pontos é o que aparece em "Lançado por" e no histórico de cada cliente e negociação.
+  Senhas fortes (mínimo 16 caracteres) e sem ponto e vírgula. Para tirar o acesso de alguém, apague o trecho da pessoa.
 - `DATAJUD_API_KEY` = chave da API DataJud
+
+O login único antigo (`APP_USUARIO` + `APP_SENHA`) continua funcionando, mas tudo que for lançado por ele aparece com o mesmo nome. Use um login por pessoa.
 
 O navegador pedirá usuário e senha ao abrir o sistema. Após 10 tentativas erradas, o IP fica bloqueado por 15 minutos.
 Para testes locais sem senha: `AUTH_DESABILITADA=1` no `.env` (nunca use no Railway).
@@ -60,6 +64,20 @@ Para testes locais sem senha: `AUTH_DESABILITADA=1` no `.env` (nunca use no Rail
 | Definir prioridade | Abra o processo → selecione Urgente/Alta/Normal/Baixa |
 | Filtrar | Use os filtros no topo da tabela |
 | Exportar planilha | Botão "Exportar Excel" no cabeçalho |
+
+### Negociações com bancos
+
+| Ação | Como fazer |
+|------|------------|
+| Cadastrar cliente | Aba **Clientes** → "Novo cliente" (CPF/CNPJ é validado e não pode repetir) |
+| Passar os dados ao banco | Abra o cliente ou a negociação → "Copiar qualificação" → cole no WhatsApp/e-mail |
+| Abrir negociação | Aba **Negociações** → "Nova negociação" (1 negociação = 1 cliente × 1 banco × 1 contrato) |
+| Registrar contato com o banco | Abra a negociação → "Registrar tentativa de acordo" (já atualiza etapa, última proposta e próxima ação) |
+| Rotina diária | Aba **Negociações** abre filtrada em "Para hoje e atrasadas" |
+| Métricas | Aba **Painel de Acordos**: calculado automaticamente pelos lançamentos |
+
+Regras do sistema: toda negociação em andamento exige próxima ação com data; acordo fechado exige valor e data; encerramento sem acordo exige motivo.
+Tentativas lançadas não são editadas nem apagadas: se houver erro, lance uma nova tentativa corrigindo.
 
 ---
 

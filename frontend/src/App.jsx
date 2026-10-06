@@ -4,7 +4,11 @@ import StatsCards from './components/StatsCards'
 import Filtros from './components/Filtros'
 import TabelaProcessos from './components/TabelaProcessos'
 import ModalProcesso from './components/ModalProcesso'
-import { getStatus, getProcessos, getTribunais } from './api'
+import Negociacoes, { ModalNegociacao, FormNegociacao } from './negociacoes/Negociacoes'
+import Clientes, { ModalCliente } from './negociacoes/Clientes'
+import PainelAcordos from './negociacoes/PainelAcordos'
+import { Modal } from './negociacoes/comum'
+import { getStatus, getProcessos, getTribunais, getEu } from './api'
 
 export default function App() {
   const [status, setStatus] = useState(null)
@@ -19,6 +23,20 @@ export default function App() {
     situacao: '',
   })
   const [ordenacao, setOrdenacao] = useState({ campo: 'atualizado_em', ordem: 'desc' })
+
+  // Negociações e clientes
+  const [aba, setAba] = useState('processos')
+  const [eu, setEu] = useState({ usuario: '', equipe: [] })
+  const [versao, setVersao] = useState(0) // incrementa para recarregar listas após salvar
+  const [clienteAberto, setClienteAberto] = useState(null) // {} = novo cliente
+  const [negociacaoAberta, setNegociacaoAberta] = useState(null)
+  const [novaNegociacao, setNovaNegociacao] = useState(null) // { cliente } ou {}
+  const [situacaoInicial, setSituacaoInicial] = useState(null)
+  const recarregarListas = () => setVersao((v) => v + 1)
+
+  useEffect(() => {
+    getEu().then((r) => setEu(r.data)).catch(() => {})
+  }, [])
 
   const carregarStatus = useCallback(async () => {
     try {
@@ -105,8 +123,39 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header status={status} onSincronizou={handleSincronizou} />
+      <Header status={status} onSincronizou={handleSincronizou} aba={aba} onAba={setAba} usuario={eu.usuario} />
 
+      {aba === 'negociacoes' && (
+        <main className="flex-1 max-w-screen-2xl mx-auto w-full px-6 py-6">
+          <Negociacoes
+            key={situacaoInicial || 'padrao'}
+            situacaoInicial={situacaoInicial}
+            equipe={eu.equipe}
+            usuario={eu.usuario}
+            versao={versao}
+            onAbrir={setNegociacaoAberta}
+            onNova={() => setNovaNegociacao({})}
+          />
+        </main>
+      )}
+
+      {aba === 'clientes' && (
+        <main className="flex-1 max-w-screen-2xl mx-auto w-full px-6 py-6">
+          <Clientes versao={versao} onAbrirCliente={setClienteAberto} onNovoCliente={() => setClienteAberto({})} />
+        </main>
+      )}
+
+      {aba === 'painel' && (
+        <main className="flex-1 max-w-screen-2xl mx-auto w-full px-6 py-6">
+          <PainelAcordos
+            equipe={eu.equipe}
+            versao={versao}
+            onVerNegociacoes={(situacao) => { setSituacaoInicial(situacao); setAba('negociacoes') }}
+          />
+        </main>
+      )}
+
+      {aba === 'processos' && (
       <main className="flex-1 max-w-screen-2xl mx-auto w-full px-6 py-6 space-y-5">
         {/* Stats */}
         <StatsCards status={status} />
@@ -148,6 +197,41 @@ export default function App() {
           </details>
         )}
       </main>
+      )}
+
+      {clienteAberto && (
+        <ModalCliente
+          key={clienteAberto.id || 'novo'}
+          cliente={clienteAberto}
+          onFechar={() => setClienteAberto(null)}
+          onSalvo={(c) => { setClienteAberto(c); recarregarListas() }}
+          onAbrirNegociacao={(n) => { setClienteAberto(null); setNegociacaoAberta(n) }}
+          onNovaNegociacao={(c) => { setClienteAberto(null); setNovaNegociacao({ cliente: c }) }}
+        />
+      )}
+
+      {novaNegociacao && (
+        <Modal titulo="Nova negociação" subtitulo="1 negociação = 1 cliente × 1 banco × 1 contrato" onFechar={() => setNovaNegociacao(null)} largura="max-w-4xl">
+          <FormNegociacao
+            clienteInicial={novaNegociacao.cliente}
+            equipe={eu.equipe}
+            usuario={eu.usuario}
+            onSalvo={(n) => { setNovaNegociacao(null); setNegociacaoAberta(n); recarregarListas() }}
+          />
+        </Modal>
+      )}
+
+      {negociacaoAberta && (
+        <ModalNegociacao
+          key={negociacaoAberta.id}
+          negociacaoInicial={negociacaoAberta}
+          equipe={eu.equipe}
+          usuario={eu.usuario}
+          onFechar={() => setNegociacaoAberta(null)}
+          onAlterada={recarregarListas}
+          onAbrirCliente={(c) => { setNegociacaoAberta(null); setClienteAberto(c) }}
+        />
+      )}
 
       {/* Modal de detalhe */}
       {processoselecionado && (
