@@ -7,6 +7,7 @@ import ModalProcesso from './components/ModalProcesso'
 import Negociacoes, { ModalNegociacao, FormNegociacao } from './negociacoes/Negociacoes'
 import Clientes, { ModalCliente } from './negociacoes/Clientes'
 import PainelAcordos from './negociacoes/PainelAcordos'
+import ContatosBancos from './negociacoes/ContatosBancos'
 import { Modal } from './negociacoes/comum'
 import { getStatus, getProcessos, getTribunais, getEu } from './api'
 
@@ -142,6 +143,12 @@ export default function App() {
       {aba === 'clientes' && (
         <main className="flex-1 max-w-screen-2xl mx-auto w-full px-6 py-6">
           <Clientes versao={versao} onAbrirCliente={setClienteAberto} onNovoCliente={() => setClienteAberto({})} onImportado={recarregarListas} />
+        </main>
+      )}
+
+      {aba === 'bancos' && (
+        <main className="flex-1 max-w-screen-2xl mx-auto w-full px-6 py-6">
+          <ContatosBancos />
         </main>
       )}
 

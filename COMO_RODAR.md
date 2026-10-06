@@ -80,6 +80,7 @@ Para testes locais sem senha: `AUTH_DESABILITADA=1` no `.env` (nunca use no Rail
 | Métricas | Aba **Painel de Acordos**: calculado automaticamente pelos lançamentos |
 
 | Importar planilha | Aba **Clientes** → "Importar planilha" → prévia → confirmar (GPX fica de fora por padrão; reimportar não duplica) |
+| Contatos dos bancos | Aba **Contatos dos Bancos** (ou, dentro da negociação, aba "Contatos do banco"): ouvidoria, recuperação de crédito, jurídico, gerentes. Contato que parou de funcionar: desmarque "Ativo" (apagar só para `APP_RESPONSAVEIS_ACORDOS`) |
 | Acesso gov.br | Ficha do cliente → "Acesso gov.br" (só para `APP_RESPONSAVEIS_ACORDOS`; fica visível por 60 s e cada visualização vai para o histórico) |
 
 Regras do sistema: toda negociação em andamento exige próxima ação com data; acordo fechado exige valor e data; encerramento sem acordo exige motivo.

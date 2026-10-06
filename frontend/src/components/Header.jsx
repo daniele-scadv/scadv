@@ -1,4 +1,4 @@
-import { Scale, RefreshCw, Download, Clock, Briefcase, Handshake, Users, BarChart3, UserCircle } from 'lucide-react'
+import { Scale, RefreshCw, Download, Clock, Briefcase, Handshake, Users, BarChart3, UserCircle, Landmark } from 'lucide-react'
 import { sincronizar, getExportUrl } from '../api'
 import { useState } from 'react'
 import { format } from 'date-fns'
@@ -8,6 +8,7 @@ const ABAS = [
   { id: 'processos', label: 'Processos', icon: Briefcase },
   { id: 'negociacoes', label: 'Negociações', icon: Handshake },
   { id: 'clientes', label: 'Clientes', icon: Users },
+  { id: 'bancos', label: 'Contatos dos Bancos', icon: Landmark },
   { id: 'painel', label: 'Painel de Acordos', icon: BarChart3 },
 ]
 

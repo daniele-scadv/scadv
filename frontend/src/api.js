@@ -44,4 +44,11 @@ const formImportacao = (arquivo, nichosExcluidos) => {
 export const previaImportacao = (arquivo, nichosExcluidos) => api.post('/importacao/previa', formImportacao(arquivo, nichosExcluidos))
 export const confirmarImportacao = (arquivo, nichosExcluidos) => api.post('/importacao/confirmar', formImportacao(arquivo, nichosExcluidos))
 
+export const getContatosBancos = (params) => api.get('/contatos-bancos', { params })
+export const getTiposContato = () => api.get('/contatos-bancos/tipos')
+export const criarContatoBanco = (dados) => api.post('/contatos-bancos', dados)
+export const atualizarContatoBanco = (id, dados) => api.patch(`/contatos-bancos/${id}`, dados)
+export const apagarContatoBanco = (id) => api.delete(`/contatos-bancos/${id}`)
+export const getHistoricoContatoBanco = (id) => api.get(`/contatos-bancos/${id}/historico`)
+
 export default api

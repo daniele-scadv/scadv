@@ -10,6 +10,7 @@ import {
   situacaoPrazo, erroApi, paraNumero, formatarDocumento,
 } from './comum'
 import { textoQualificacao, BotaoCopiar } from './Clientes'
+import { ContatosDoBanco } from './ContatosBancos'
 
 const SITUACOES = [
   { value: 'hoje', label: 'Para hoje e atrasadas' },
@@ -311,6 +312,7 @@ export function ModalNegociacao({ negociacaoInicial, equipe, usuario, onFechar, 
 
   const abas = [
     { id: 'tentativas', label: `Tentativas de acordo (${tentativas.length})` },
+    { id: 'contatos', label: 'Contatos do banco' },
     { id: 'dados', label: 'Dados da negociação' },
     { id: 'cliente', label: 'Qualificação do cliente' },
     { id: 'historico', label: 'Histórico' },
@@ -416,6 +418,8 @@ export function ModalNegociacao({ negociacaoInicial, equipe, usuario, onFechar, 
             )}
           </div>
         )}
+
+        {aba === 'contatos' && <ContatosDoBanco banco={n.banco} />}
 
         {aba === 'dados' && (
           <FormNegociacao

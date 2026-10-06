@@ -97,6 +97,30 @@ class CredencialGov(Base):
     atualizado_em = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class ContatoBanco(Base):
+    """Agenda de contatos dos bancos: ouvidoria, recuperação de crédito, jurídico, gerentes, assessorias."""
+    __tablename__ = "contatos_bancos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    banco = Column(String, nullable=False, index=True)
+    tipo = Column(String, nullable=False)  # Ouvidoria, Recuperação de crédito, Jurídico, Gerente...
+    nome = Column(String, nullable=True)  # pessoa ou setor
+    cargo = Column(String, nullable=True)
+    telefone = Column(String, nullable=True)
+    whatsapp = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    endereco = Column(Text, nullable=True)  # para notificação física / AR
+    site = Column(String, nullable=True)  # portal de negociação, formulário da ouvidoria
+    horario = Column(String, nullable=True)
+    regiao = Column(String, nullable=True)  # agência, cidade/UF ou "nacional"
+    observacoes = Column(Text, nullable=True)  # o que funciona com esse contato
+    ativo = Column(Boolean, default=True)
+    criado_por = Column(String, nullable=True)
+    criado_em = Column(DateTime, default=datetime.utcnow)
+    atualizado_por = Column(String, nullable=True)
+    atualizado_em = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class Negociacao(Base):
     """Uma negociação = 1 cliente × 1 banco × 1 contrato."""
     __tablename__ = "negociacoes"
